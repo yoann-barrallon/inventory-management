@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
 use App\Models\User;
@@ -13,11 +15,37 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Create roles and permissions first
+        $this->call(RoleAndPermissionSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Create base data
+        $this->call([
+            CategorySeeder::class,
+            LocationSeeder::class,
+            SupplierSeeder::class,
+            ProductSeeder::class,
+            StockSeeder::class,
         ]);
+
+        // Create test user with admin role
+        $adminUser = User::factory()->create([
+            'name' => 'Admin User',
+            'email' => 'admin@inventory.test',
+        ]);
+        $adminUser->assignRole('admin');
+
+        // Create test user with stock manager role
+        $stockManagerUser = User::factory()->create([
+            'name' => 'Stock Manager',
+            'email' => 'manager@inventory.test',
+        ]);
+        $stockManagerUser->assignRole('stock_manager');
+
+        // Create test user with operator role
+        $operatorUser = User::factory()->create([
+            'name' => 'Operator',
+            'email' => 'operator@inventory.test',
+        ]);
+        $operatorUser->assignRole('operator');
     }
 }
