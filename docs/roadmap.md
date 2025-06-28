@@ -47,15 +47,63 @@
     - ✅ Create protected route groups with appropriate middleware
     - ✅ Test permission system with different user roles (verified working)
 
-### 🧩 Inertia API & Controllers Development (Weeks 5–7)
+### 🧩 Inertia API & Controllers Development (Weeks 5–7) 🚧 IN PROGRESS
 
-- **Products & Categories**: Full CRUD with Laravel controllers returning Inertia responses with props.
-- **Stock & Locations**: Controllers for managing stock quantities and locations, passing data to React components via Inertia.
-- **Stock Transactions**: Controllers to register inbound, outbound, and adjustment stock transactions.
-- **Suppliers & Purchase Orders**: CRUD for suppliers and handling purchase orders with their details.
-- **Users**: Controllers to manage users and allow role modifications (admin-level).
-- Implement request validation and server-side error handling using Laravel.
-- Implement pagination, filtering, and sorting via Laravel and pass results to React through Inertia.
+- ✅ **Products & Categories**: Full CRUD with Laravel controllers returning Inertia responses with props:
+
+    - ✅ `CategoryController` - Complete CRUD with search, pagination, validation
+    - ✅ `ProductController` - Full CRUD with relationships, filtering, stock information
+    - ✅ `CategoryRequest` & `ProductRequest` - Comprehensive validation rules
+    - ✅ Routes with proper permission middleware integration
+
+- ✅ **Locations**: Controllers for managing stock locations:
+
+    - ✅ `LocationController` - Complete CRUD with stock counts and relationships
+    - ✅ `LocationRequest` - Validation with uniqueness rules
+    - ✅ Routes with location-specific permissions
+
+- 🚧 **Stock & Locations**: Controllers for managing stock quantities and locations, passing data to React components via Inertia:
+
+    - ✅ Basic stock querying in ProductController and LocationController
+    - ⏳ `StockController` - Stock management operations (pending)
+    - ⏳ Stock adjustment and transfer functionality (pending)
+
+- 🚧 **Stock Transactions**: Controllers to register inbound, outbound, and adjustment stock transactions:
+
+    - ⏳ `StockTransactionController` - Transaction CRUD (pending)
+    - ⏳ `StockTransactionRequest` - Transaction validation (pending)
+    - ⏳ Automated stock updates on transactions (pending)
+
+- 🚧 **Suppliers & Purchase Orders**: CRUD for suppliers and handling purchase orders with their details:
+
+    - ⏳ `SupplierController` - Supplier management (pending)
+    - ⏳ `PurchaseOrderController` - Order management with details (pending)
+    - ⏳ Purchase order workflow implementation (pending)
+
+- 🚧 **Users**: Controllers to manage users and allow role modifications (admin-level):
+
+    - ⏳ `UserController` - User management with role assignment (pending)
+    - ⏳ `UserRequest` - User validation with role handling (pending)
+
+- ✅ **Dashboard & Analytics**: Comprehensive dashboard with insights:
+
+    - ✅ `DashboardController` - Complete analytics dashboard
+    - ✅ Stock statistics, low stock alerts, activity timeline
+    - ✅ Purchase order statistics and transaction trends
+    - ✅ Real-time inventory insights and reporting
+
+- ✅ **Infrastructure**: Core development infrastructure:
+
+    - ✅ Form Request validation classes with proper rules
+    - ✅ Inertia response formatting with props
+    - ✅ Route protection with spatie middleware integration
+    - ✅ Search, filtering, and sorting functionality
+    - ✅ Pagination with query string preservation
+
+- ⏳ **Remaining Tasks**:
+    - Complete remaining controllers (Stock, StockTransaction, Supplier, PurchaseOrder, User)
+    - Implement request validation and server-side error handling for remaining entities
+    - Complete pagination, filtering, and sorting for all controllers
 
 ### 🧪 Backend Testing (Ongoing, end of Week 7)
 
