@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CategoryRequest;
 use App\Models\Category;
+use App\Services\CategoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,36 +14,23 @@ use Inertia\Response;
 
 class CategoryController extends Controller
 {
+    public function __construct(
+        private readonly CategoryService $categoryService
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request): Response
     {
-        $query = Category::query();
-
-        // Search functionality
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        // Sorting
-        $sortField = $request->input('sort', 'name');
-        $sortDirection = $request->input('direction', 'asc');
-        $query->orderBy($sortField, $sortDirection);
-
-        // Pagination
-        $categories = $query->paginate(15)->withQueryString();
+        $categories = $this->categoryService->getPaginatedCategories($request);
 
         return Inertia::render('Inventory/Categories/Index', [
             'categories' => $categories,
             'filters' => [
                 'search' => $request->input('search'),
-                'sort' => $sortField,
-                'direction' => $sortDirection,
+                'sort' => $request->input('sort', 'name'),
+                'direction' => $request->input('direction', 'asc'),
             ],
         ]);
     }
@@ -60,7 +48,7 @@ class CategoryController extends Controller
      */
     public function store(CategoryRequest $request): RedirectResponse
     {
-        Category::create($request->validated());
+        $this->categoryService->createCategory($request->validated());
 
         return redirect()
             ->route('inventory.categories.index')
@@ -72,11 +60,7 @@ class CategoryController extends Controller
      */
     public function show(Category $category): Response
     {
-        $category->load(['products' => function ($query) {
-            $query->with('supplier')
-                ->orderBy('name')
-                ->take(10);
-        }]);
+        $category = $this->categoryService->getCategoryWithRelations($category);
 
         return Inertia::render('Inventory/Categories/Show', [
             'category' => $category,
@@ -99,7 +83,7 @@ class CategoryController extends Controller
      */
     public function update(CategoryRequest $request, Category $category): RedirectResponse
     {
-        $category->update($request->validated());
+        $this->categoryService->updateCategory($category, $request->validated());
 
         return redirect()
             ->route('inventory.categories.index')
@@ -111,14 +95,11 @@ class CategoryController extends Controller
      */
     public function destroy(Category $category): RedirectResponse
     {
-        // Check if category has products
-        if ($category->products()->count() > 0) {
+        if (!$this->categoryService->deleteCategory($category)) {
             return redirect()
                 ->route('inventory.categories.index')
                 ->with('error', 'Cannot delete category that has products associated with it.');
         }
-
-        $category->delete();
 
         return redirect()
             ->route('inventory.categories.index')
