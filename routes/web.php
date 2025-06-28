@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LocationController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -16,19 +20,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Inventory System Routes - Requires authentication and inventory access
 Route::middleware(['auth', 'verified', 'inventory.access'])->prefix('inventory')->name('inventory.')->group(function () {
 
-    // Dashboard - Available to all inventory users
-    Route::get('/', function () {
-        return Inertia::render('inventory/dashboard');
-    })->name('dashboard');
+    // Main Inventory Dashboard
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Products - Basic view for all, management for stock_manager and admin
-    Route::get('/products', function () {
-        return Inertia::render('inventory/products/index');
-    })->middleware('permission:view products')->name('products.index');
+    // Categories - CRUD with permissions
+    Route::middleware('permission:view categories')->group(function () {
+        Route::resource('categories', CategoryController::class)->except(['destroy']);
+    });
+    Route::delete('categories/{category}', [CategoryController::class, 'destroy'])
+        ->middleware('permission:delete categories')
+        ->name('categories.destroy');
 
-    Route::get('/products/create', function () {
-        return Inertia::render('inventory/products/create');
-    })->middleware('permission:create products')->name('products.create');
+    // Locations - CRUD with permissions  
+    Route::middleware('permission:view locations')->group(function () {
+        Route::resource('locations', LocationController::class)->except(['destroy']);
+    });
+    Route::delete('locations/{location}', [LocationController::class, 'destroy'])
+        ->middleware('permission:delete locations')
+        ->name('locations.destroy');
+
+    // Products - CRUD with permissions
+    Route::middleware('permission:view products')->group(function () {
+        Route::resource('products', ProductController::class)->except(['store', 'update', 'destroy']);
+    });
+    Route::post('products', [ProductController::class, 'store'])
+        ->middleware('permission:create products')
+        ->name('products.store');
+    Route::put('products/{product}', [ProductController::class, 'update'])
+        ->middleware('permission:edit products')
+        ->name('products.update');
+    Route::delete('products/{product}', [ProductController::class, 'destroy'])
+        ->middleware('permission:delete products')
+        ->name('products.destroy');
 
     // Stock Management - Requires specific permissions
     Route::get('/stock', function () {
