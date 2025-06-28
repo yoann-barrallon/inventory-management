@@ -37,10 +37,15 @@
     - ✅ `StockSeeder` - Initial stock distributed across locations
     - ✅ `DatabaseSeeder` - 3 test users with assigned roles
 
-### 🔐 Authentication & Authorization (Week 4)
+### 🔐 Authentication & Authorization (Week 4) ✅ COMPLETED
 
 - ✅ Implement user roles and permissions using [spatie/laravel-permission](https://github.com/spatie/laravel-permission) (e.g., `admin`, `stock_manager`, `operator`).
-- Develop route protection using custom middleware.
+- ✅ Develop route protection using custom middleware:
+    - ✅ Use Spatie's built-in middleware (`role`, `permission`, `role_or_permission`)
+    - ✅ Create custom `CheckInventoryAccess` middleware for inventory-specific access control
+    - ✅ Register middleware in Laravel 12 bootstrap configuration
+    - ✅ Create protected route groups with appropriate middleware
+    - ✅ Test permission system with different user roles (verified working)
 
 ### 🧩 Inertia API & Controllers Development (Weeks 5–7)
 
