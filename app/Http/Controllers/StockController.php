@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\StockFilterDto;
 use App\Models\Location;
 use App\Models\Product;
 use App\Services\StockService;
@@ -23,7 +24,8 @@ class StockController extends Controller
      */
     public function index(Request $request): Response
     {
-        $stockLevels = $this->stockService->getPaginatedStockLevels($request);
+        $filters = StockFilterDto::fromArray($request->all());
+        $stockLevels = $this->stockService->getPaginatedStockLevels($filters);
         $formData = $this->stockService->getFormData();
 
         return Inertia::render('Inventory/Stock/Index', [
@@ -31,15 +33,7 @@ class StockController extends Controller
             'products' => $formData['products'],
             'locations' => $formData['locations'],
             'categories' => $formData['categories'],
-            'filters' => [
-                'search' => $request->input('search'),
-                'product' => $request->input('product'),
-                'location' => $request->input('location'),
-                'category' => $request->input('category'),
-                'stock_level' => $request->input('stock_level'),
-                'sort' => $request->input('sort', 'products.name'),
-                'direction' => $request->input('direction', 'asc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 
@@ -246,7 +240,8 @@ class StockController extends Controller
     {
         // This would typically generate and download a CSV file
         // For now, we'll return the data that would be exported
-        $stockLevels = $this->stockService->getPaginatedStockLevels($request);
+        $filters = StockFilterDto::fromArray($request->all());
+        $stockLevels = $this->stockService->getPaginatedStockLevels($filters);
 
         return response()->json([
             'message' => 'CSV export functionality would be implemented here',

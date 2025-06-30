@@ -48,4 +48,17 @@ class StockFilterDto
     {
         return !empty($this->stockLevel);
     }
+
+    public function toArray(): array
+    {
+        return [
+            'search' => $this->search,
+            'product' => $this->product,
+            'location' => $this->location,
+            'stock_level' => $this->stockLevel,
+            'sort_by' => $this->sortBy,
+            'sort_direction' => $this->sortDirection,
+            'per_page' => $this->perPage,
+        ];
+    }
 } 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\GenericFilterDto;
 use App\Http\Requests\CategoryRequest;
 use App\Models\Category;
 use App\Services\CategoryService;
@@ -23,15 +24,12 @@ class CategoryController extends Controller
      */
     public function index(Request $request): Response
     {
-        $categories = $this->categoryService->getPaginatedCategories($request);
+        $filters = GenericFilterDto::fromArray($request->all());
+        $categories = $this->categoryService->getPaginatedCategories($filters);
 
         return Inertia::render('Inventory/Categories/Index', [
             'categories' => $categories,
-            'filters' => [
-                'search' => $request->input('search'),
-                'sort' => $request->input('sort', 'name'),
-                'direction' => $request->input('direction', 'asc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 

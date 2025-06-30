@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\UserFilterDto;
 use App\Http\Requests\UserRequest;
 use App\Http\Requests\UserRoleRequest;
 use App\Http\Requests\UserProfileRequest;
@@ -26,19 +27,14 @@ class UserController extends Controller
      */
     public function index(Request $request): Response
     {
-        $users = $this->userService->getPaginatedUsers($request);
+        $filters = UserFilterDto::fromArray($request->all());
+        $users = $this->userService->getPaginatedUsers($filters);
         $formData = $this->userService->getFormData();
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
             'roles' => $formData['roles'],
-            'filters' => [
-                'search' => $request->input('search'),
-                'role' => $request->input('role'),
-                'status' => $request->input('status'),
-                'sort' => $request->input('sort', 'name'),
-                'direction' => $request->input('direction', 'asc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 

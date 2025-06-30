@@ -41,4 +41,16 @@ class UserFilterDto
     {
         return !empty($this->status);
     }
+
+    public function toArray(): array
+    {
+        return [
+            'search' => $this->search,
+            'role' => $this->role,
+            'status' => $this->status,
+            'sort_by' => $this->sortBy,
+            'sort_direction' => $this->sortDirection,
+            'per_page' => $this->perPage,
+        ];
+    }
 } 

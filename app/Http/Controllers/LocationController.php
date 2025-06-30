@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\GenericFilterDto;
 use App\Http\Requests\LocationRequest;
 use App\Models\Location;
 use App\Services\LocationService;
@@ -23,16 +24,12 @@ class LocationController extends Controller
      */
     public function index(Request $request): Response
     {
-        $locations = $this->locationService->getPaginatedLocations($request);
+        $filters = GenericFilterDto::fromArray($request->all());
+        $locations = $this->locationService->getPaginatedLocations($filters);
 
         return Inertia::render('Inventory/Locations/Index', [
             'locations' => $locations,
-            'filters' => [
-                'search' => $request->input('search'),
-                'status' => $request->input('status'),
-                'sort' => $request->input('sort', 'name'),
-                'direction' => $request->input('direction', 'asc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 

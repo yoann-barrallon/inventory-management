@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\GenericFilterDto;
 use App\Http\Requests\SupplierRequest;
 use App\Models\Supplier;
 use App\Services\SupplierService;
@@ -23,16 +24,12 @@ class SupplierController extends Controller
      */
     public function index(Request $request): Response
     {
-        $suppliers = $this->supplierService->getPaginatedSuppliers($request);
+        $filters = GenericFilterDto::fromArray($request->all());
+        $suppliers = $this->supplierService->getPaginatedSuppliers($filters);
 
         return Inertia::render('Inventory/Suppliers/Index', [
             'suppliers' => $suppliers,
-            'filters' => [
-                'search' => $request->input('search'),
-                'status' => $request->input('status'),
-                'sort' => $request->input('sort', 'name'),
-                'direction' => $request->input('direction', 'asc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 

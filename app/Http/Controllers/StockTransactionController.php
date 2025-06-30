@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\StockTransactionFilterDto;
 use App\Http\Requests\StockTransactionRequest;
 use App\Http\Requests\StockTransferRequest;
 use App\Http\Requests\StockLevelsRequest;
@@ -27,23 +28,15 @@ class StockTransactionController extends Controller
      */
     public function index(Request $request): Response
     {
-        $transactions = $this->stockTransactionService->getPaginatedTransactions($request);
+        $filters = StockTransactionFilterDto::fromArray($request->all());
+        $transactions = $this->stockTransactionService->getPaginatedTransactions($filters);
         $formData = $this->stockTransactionService->getFormData();
 
         return Inertia::render('Inventory/StockTransactions/Index', [
             'transactions' => $transactions,
             'products' => $formData['products'],
             'locations' => $formData['locations'],
-            'filters' => [
-                'search' => $request->input('search'),
-                'product' => $request->input('product'),
-                'location' => $request->input('location'),
-                'type' => $request->input('type'),
-                'date_from' => $request->input('date_from'),
-                'date_to' => $request->input('date_to'),
-                'sort' => $request->input('sort', 'created_at'),
-                'direction' => $request->input('direction', 'desc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 

@@ -64,4 +64,20 @@ class StockTransactionFilterDto
     {
         return !empty($this->dateFrom) || !empty($this->dateTo);
     }
+
+    public function toArray(): array
+    {
+        return [
+            'search' => $this->search,
+            'product' => $this->product,
+            'location' => $this->location,
+            'user' => $this->user,
+            'type' => $this->type,
+            'date_from' => $this->dateFrom,
+            'date_to' => $this->dateTo,
+            'sort_by' => $this->sortBy,
+            'sort_direction' => $this->sortDirection,
+            'per_page' => $this->perPage,
+        ];
+    }
 } 

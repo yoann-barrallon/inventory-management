@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\PurchaseOrderFilterDto;
 use App\Http\Requests\PurchaseOrderRequest;
 use App\Http\Requests\PurchaseOrderStatusRequest;
 use App\Models\PurchaseOrder;
@@ -24,21 +25,14 @@ class PurchaseOrderController extends Controller
      */
     public function index(Request $request): Response
     {
-        $purchaseOrders = $this->purchaseOrderService->getPaginatedPurchaseOrders($request);
+        $filters = PurchaseOrderFilterDto::fromArray($request->all());
+        $purchaseOrders = $this->purchaseOrderService->getPaginatedPurchaseOrders($filters);
         $formData = $this->purchaseOrderService->getFormData();
 
         return Inertia::render('Inventory/PurchaseOrders/Index', [
             'purchaseOrders' => $purchaseOrders,
             'suppliers' => $formData['suppliers'],
-            'filters' => [
-                'search' => $request->input('search'),
-                'supplier' => $request->input('supplier'),
-                'status' => $request->input('status'),
-                'date_from' => $request->input('date_from'),
-                'date_to' => $request->input('date_to'),
-                'sort' => $request->input('sort', 'order_date'),
-                'direction' => $request->input('direction', 'desc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 

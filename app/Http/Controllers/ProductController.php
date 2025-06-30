@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+    use App\DTOs\ProductFilterDto;
 use App\Http\Requests\ProductRequest;
 use App\Models\Product;
 use App\Services\ProductService;
@@ -23,22 +24,15 @@ class ProductController extends Controller
      */
     public function index(Request $request): Response
     {
-        $products = $this->productService->getPaginatedProducts($request);
+        $filters = ProductFilterDto::fromArray($request->all());
+        $products = $this->productService->getPaginatedProducts($filters);
         $formData = $this->productService->getFormData();
 
         return Inertia::render('Inventory/Products/Index', [
             'products' => $products,
             'categories' => $formData['categories'],
             'suppliers' => $formData['suppliers'],
-            'filters' => [
-                'search' => $request->input('search'),
-                'category' => $request->input('category'),
-                'supplier' => $request->input('supplier'),
-                'status' => $request->input('status'),
-                'low_stock' => $request->input('low_stock'),
-                'sort' => $request->input('sort', 'name'),
-                'direction' => $request->input('direction', 'asc'),
-            ],
+            'filters' => $filters->toArray(),
         ]);
     }
 
