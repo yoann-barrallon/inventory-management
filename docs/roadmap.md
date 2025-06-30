@@ -47,7 +47,7 @@
     - ✅ Create protected route groups with appropriate middleware
     - ✅ Test permission system with different user roles (verified working)
 
-### 🧩 Inertia API & Controllers Development (Weeks 5–7) 🚧 IN PROGRESS
+### 🧩 Inertia API & Controllers Development (Weeks 5–7) ✅ COMPLETED
 
 - ✅ **Products & Categories**: Full CRUD with Laravel controllers returning Inertia responses with props:
 
@@ -62,28 +62,31 @@
     - ✅ `LocationRequest` - Validation with uniqueness rules
     - ✅ Routes with location-specific permissions
 
-- 🚧 **Stock & Locations**: Controllers for managing stock quantities and locations, passing data to React components via Inertia:
+- ✅ **Stock & Locations**: Controllers for managing stock quantities and locations, passing data to React components via Inertia:
 
-    - ✅ Basic stock querying in ProductController and LocationController
-    - ⏳ `StockController` - Stock management operations (pending)
-    - ⏳ Stock adjustment and transfer functionality (pending)
+    - ✅ `StockController` - Complete stock management with valuation, alerts, aging reports
+    - ✅ Stock adjustment and transfer functionality implemented
+    - ✅ Stock levels, product/location specific views, AJAX endpoints
 
-- 🚧 **Stock Transactions**: Controllers to register inbound, outbound, and adjustment stock transactions:
+- ✅ **Stock Transactions**: Controllers to register inbound, outbound, and adjustment stock transactions:
 
-    - ⏳ `StockTransactionController` - Transaction CRUD (pending)
-    - ⏳ `StockTransactionRequest` - Transaction validation (pending)
-    - ⏳ Automated stock updates on transactions (pending)
+    - ✅ `StockTransactionController` - Complete transaction CRUD with proper Form Requests
+    - ✅ `StockTransactionRequest`, `StockTransferRequest` - Comprehensive validation
+    - ✅ `StockLevelsRequest`, `ProductHistoryRequest`, `LocationHistoryRequest` - AJAX validation
+    - ✅ Automated stock updates on transactions implemented
 
-- 🚧 **Suppliers & Purchase Orders**: CRUD for suppliers and handling purchase orders with their details:
+- ✅ **Suppliers & Purchase Orders**: CRUD for suppliers and handling purchase orders with their details:
 
-    - ⏳ `SupplierController` - Supplier management (pending)
-    - ⏳ `PurchaseOrderController` - Order management with details (pending)
-    - ⏳ Purchase order workflow implementation (pending)
+    - ✅ `SupplierController` - Complete supplier management with Form Requests
+    - ✅ `PurchaseOrderController` - Complete order management with details and status workflow
+    - ✅ `PurchaseOrderRequest`, `PurchaseOrderStatusRequest` - Proper validation
+    - ✅ Purchase order workflow implementation (pending, confirmed, received, cancelled)
 
-- 🚧 **Users**: Controllers to manage users and allow role modifications (admin-level):
+- ✅ **Users**: Controllers to manage users and allow role modifications (admin-level):
 
-    - ⏳ `UserController` - User management with role assignment (pending)
-    - ⏳ `UserRequest` - User validation with role handling (pending)
+    - ✅ `UserController` - Complete user management with role assignment
+    - ✅ `UserRequest`, `UserRoleRequest`, `UserProfileRequest` - Comprehensive validation
+    - ✅ Profile management and user search functionality
 
 - ✅ **Dashboard & Analytics**: Comprehensive dashboard with insights:
 
@@ -94,16 +97,19 @@
 
 - ✅ **Infrastructure**: Core development infrastructure:
 
-    - ✅ Form Request validation classes with proper rules
+    - ✅ Form Request validation classes with proper rules for ALL controllers
+    - ✅ Eliminated inline `$request->validate()` usage following Laravel best practices
     - ✅ Inertia response formatting with props
     - ✅ Route protection with spatie middleware integration
     - ✅ Search, filtering, and sorting functionality
     - ✅ Pagination with query string preservation
 
-- ⏳ **Remaining Tasks**:
-    - Complete remaining controllers (Stock, StockTransaction, Supplier, PurchaseOrder, User)
-    - Implement request validation and server-side error handling for remaining entities
-    - Complete pagination, filtering, and sorting for all controllers
+- ✅ **Completed Tasks**:
+    - ✅ All main controllers implemented (Category, Product, Location, Stock, StockTransaction, Supplier, PurchaseOrder, User, Dashboard)
+    - ✅ Complete Form Request validation classes for all business logic
+    - ✅ Server-side error handling and validation for all entities
+    - ✅ Pagination, filtering, and sorting for all controllers
+    - ✅ AJAX endpoints with proper Form Request validation
 
 ### 🧪 Backend Testing (Ongoing, end of Week 7)
 
