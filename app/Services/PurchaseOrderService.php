@@ -8,10 +8,16 @@ use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderDetail;
 use App\Models\Supplier;
+use App\Models\Stock;
+use App\Models\StockTransaction;
+use App\Models\Location;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 class PurchaseOrderService
 {
@@ -42,6 +48,17 @@ class PurchaseOrderService
     public function createPurchaseOrder(array $data): array
     {
         return DB::transaction(function () use ($data) {
+            // Validate supplier exists and is active
+            $supplier = Supplier::where('id', $data['supplier_id'])
+                ->where('is_active', true)
+                ->first();
+            
+            if (!$supplier) {
+                throw ValidationException::withMessages([
+                    'supplier_id' => 'Selected supplier is not available.'
+                ]);
+            }
+
             // Create the purchase order
             $purchaseOrder = PurchaseOrder::create([
                 'order_number' => PurchaseOrder::generateOrderNumber(),
@@ -52,7 +69,7 @@ class PurchaseOrderService
                 'notes' => $data['notes'] ?? null,
                 'user_id' => Auth::id(),
                 'subtotal' => 0,
-                'tax_rate' => $data['tax_rate'] ?? 0,
+                'tax_rate' => $data['tax_rate'] ?? config('inventory.default_tax_rate', 0),
                 'tax_amount' => 0,
                 'total_amount' => 0,
             ]);
@@ -61,6 +78,17 @@ class PurchaseOrderService
             if (isset($data['details']) && is_array($data['details'])) {
                 $this->addOrderDetails($purchaseOrder, $data['details']);
             }
+
+            // Log the creation
+            Log::info('Purchase order created', [
+                'order_id' => $purchaseOrder->id,
+                'order_number' => $purchaseOrder->order_number,
+                'supplier_id' => $purchaseOrder->supplier_id,
+                'user_id' => Auth::id(),
+            ]);
+
+            // Fire event
+            Event::dispatch('purchase-order.created', $purchaseOrder);
 
             return [
                 'success' => true,
@@ -101,6 +129,16 @@ class PurchaseOrderService
                 $this->addOrderDetails($purchaseOrder, $data['details']);
             }
 
+            // Log the update
+            Log::info('Purchase order updated', [
+                'order_id' => $purchaseOrder->id,
+                'order_number' => $purchaseOrder->order_number,
+                'user_id' => Auth::id(),
+            ]);
+
+            // Fire event
+            Event::dispatch('purchase-order.updated', $purchaseOrder);
+
             return [
                 'success' => true,
                 'message' => 'Purchase order updated successfully.',
@@ -121,20 +159,136 @@ class PurchaseOrderService
             ];
         }
 
+        $oldStatus = $purchaseOrder->status;
+
         $purchaseOrder->update([
             'status' => $status,
             'notes' => $notes ? ($purchaseOrder->notes . "\n\n" . $notes) : $purchaseOrder->notes,
         ]);
 
-        // If status is received, update stock levels
-        if ($status === 'received') {
-            $this->processReceivedOrder($purchaseOrder);
-        }
+        // Log status change
+        Log::info('Purchase order status changed', [
+            'order_id' => $purchaseOrder->id,
+            'order_number' => $purchaseOrder->order_number,
+            'old_status' => $oldStatus,
+            'new_status' => $status,
+            'user_id' => Auth::id(),
+        ]);
+
+        // Fire event
+        Event::dispatch('purchase-order.status-changed', $purchaseOrder, $oldStatus, $status);
 
         return [
             'success' => true,
             'message' => "Purchase order status changed to {$status}.",
         ];
+    }
+
+    /**
+     * Receive purchase order items (supports partial receiving).
+     */
+    public function receiveOrderItems(PurchaseOrder $purchaseOrder, array $receivedItems, int $locationId, ?string $notes = null): array
+    {
+        // Validate purchase order can be received
+        if (!in_array($purchaseOrder->status, ['confirmed'])) {
+            return [
+                'success' => false,
+                'message' => 'Purchase order must be confirmed before receiving items.',
+            ];
+        }
+
+        // Validate location exists
+        $location = Location::find($locationId);
+        if (!$location) {
+            return [
+                'success' => false,
+                'message' => 'Invalid location specified.',
+            ];
+        }
+
+        return DB::transaction(function () use ($purchaseOrder, $receivedItems, $location, $notes) {
+            $receivedDetails = [];
+            $totalReceived = 0;
+            $totalOrdered = $purchaseOrder->details->sum('quantity');
+
+            foreach ($receivedItems as $item) {
+                $orderDetail = $purchaseOrder->details()
+                    ->where('product_id', $item['product_id'])
+                    ->first();
+
+                if (!$orderDetail) {
+                    throw ValidationException::withMessages([
+                        'product_id' => "Product {$item['product_id']} is not in this purchase order."
+                    ]);
+                }
+
+                $receivedQty = (int) $item['received_quantity'];
+                
+                if ($receivedQty <= 0) {
+                    continue; // Skip items with zero or negative quantities
+                }
+
+                if ($receivedQty > $orderDetail->quantity) {
+                    throw ValidationException::withMessages([
+                        'received_quantity' => "Cannot receive more than ordered quantity for product {$orderDetail->product->name}."
+                    ]);
+                }
+
+                // Create stock transaction
+                StockTransaction::create([
+                    'product_id' => $item['product_id'],
+                    'location_id' => $location->id,
+                    'type' => 'in',
+                    'quantity' => $receivedQty,
+                    'reason' => 'Purchase order received' . ($notes ? " - {$notes}" : ''),
+                    'reference' => $purchaseOrder->order_number,
+                    'user_id' => Auth::id(),
+                ]);
+
+                // Update stock levels
+                $this->updateStockLevel($item['product_id'], $location->id, $receivedQty);
+
+                // Track received details
+                $receivedDetails[] = [
+                    'product_id' => $item['product_id'],
+                    'product_name' => $orderDetail->product->name,
+                    'ordered_quantity' => $orderDetail->quantity,
+                    'received_quantity' => $receivedQty,
+                ];
+
+                $totalReceived += $receivedQty;
+            }
+
+            // Determine new status based on received vs ordered quantities
+            $newStatus = $this->determineOrderStatusAfterReceiving($purchaseOrder, $receivedItems);
+            
+            if ($newStatus !== $purchaseOrder->status) {
+                $purchaseOrder->update(['status' => $newStatus]);
+            }
+
+            // Log the receiving
+            Log::info('Purchase order items received', [
+                'order_id' => $purchaseOrder->id,
+                'order_number' => $purchaseOrder->order_number,
+                'location_id' => $location->id,
+                'location_name' => $location->name,
+                'received_items' => $receivedDetails,
+                'total_received' => $totalReceived,
+                'total_ordered' => $totalOrdered,
+                'new_status' => $newStatus,
+                'user_id' => Auth::id(),
+            ]);
+
+            // Fire event
+            Event::dispatch('purchase-order.items-received', $purchaseOrder, $receivedDetails, $location);
+
+            return [
+                'success' => true,
+                'message' => "Successfully received {$totalReceived} items to {$location->name}.",
+                'received_details' => $receivedDetails,
+                'new_status' => $newStatus,
+            ];
+        });
     }
 
     /**
@@ -177,6 +331,8 @@ class PurchaseOrderService
             'products' => Product::where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'sku', 'cost_price']),
+            'locations' => Location::orderBy('name')
+                ->get(['id', 'name']),
         ];
     }
 
@@ -188,6 +344,19 @@ class PurchaseOrderService
         return PurchaseOrder::with(['supplier'])
             ->whereIn('status', ['pending', 'confirmed'])
             ->orderBy('order_date', 'asc')
+            ->take($limit)
+            ->get();
+    }
+
+    /**
+     * Get overdue orders.
+     */
+    public function getOverdueOrders(int $limit = 10)
+    {
+        return PurchaseOrder::with(['supplier'])
+            ->whereIn('status', ['confirmed'])
+            ->where('expected_date', '<', now())
+            ->orderBy('expected_date', 'asc')
             ->take($limit)
             ->get();
     }
@@ -247,6 +416,17 @@ class PurchaseOrderService
         $subtotal = 0;
 
         foreach ($details as $detail) {
+            // Validate product exists and is active
+            $product = Product::where('id', $detail['product_id'])
+                ->where('is_active', true)
+                ->first();
+                
+            if (!$product) {
+                throw ValidationException::withMessages([
+                    'product_id' => "Product {$detail['product_id']} is not available."
+                ]);
+            }
+
             $lineTotal = $detail['quantity'] * $detail['unit_price'];
             $subtotal += $lineTotal;
 
@@ -285,7 +465,8 @@ class PurchaseOrderService
     {
         $validTransitions = [
             'pending' => ['confirmed', 'cancelled'],
-            'confirmed' => ['received', 'cancelled'],
+            'confirmed' => ['received', 'partially_received', 'cancelled'],
+            'partially_received' => ['received', 'cancelled'],
             'received' => [],
             'cancelled' => [],
         ];
@@ -294,17 +475,86 @@ class PurchaseOrderService
     }
 
     /**
-     * Process received order by updating stock levels.
+     * Update stock level for a product at a location.
+     */
+    private function updateStockLevel(int $productId, int $locationId, int $quantity): void
+    {
+        $stock = Stock::where('product_id', $productId)
+            ->where('location_id', $locationId)
+            ->first();
+
+        if ($stock) {
+            // Update existing stock record
+            $stock->increment('quantity', $quantity);
+        } else {
+            // Create new stock record
+            Stock::create([
+                'product_id' => $productId,
+                'location_id' => $locationId,
+                'quantity' => $quantity,
+                'reserved_quantity' => 0,
+            ]);
+        }
+    }
+
+    /**
+     * Determine order status after receiving items.
+     */
+    private function determineOrderStatusAfterReceiving(PurchaseOrder $purchaseOrder, array $receivedItems): string
+    {
+        $totalOrdered = $purchaseOrder->details->sum('quantity');
+        $totalReceived = collect($receivedItems)->sum('received_quantity');
+        
+        // Check if all items have been fully received
+        $allItemsFullyReceived = true;
+        foreach ($purchaseOrder->details as $detail) {
+            $receivedForThisProduct = collect($receivedItems)
+                ->where('product_id', $detail->product_id)
+                ->sum('received_quantity');
+                
+            if ($receivedForThisProduct < $detail->quantity) {
+                $allItemsFullyReceived = false;
+                break;
+            }
+        }
+
+        if ($allItemsFullyReceived) {
+            return 'received';
+        } elseif ($totalReceived > 0) {
+            return 'partially_received';
+        } else {
+            return $purchaseOrder->status; // No change
+        }
+    }
+
+    /**
+     * Process received order by updating stock levels (legacy method - use receiveOrderItems instead).
      */
     private function processReceivedOrder(PurchaseOrder $purchaseOrder): void
     {
-        // This would typically integrate with StockTransactionService
-        // to create stock-in transactions for each item received
+        // Get the default location (first location) - in a real app, this could be configurable
+        $defaultLocation = Location::first();
         
-        // For now, we'll add a comment about this integration point
-        // In a real implementation, you would:
-        // 1. Create stock transactions for each order detail
-        // 2. Update stock levels at the specified location
-        // 3. Log the receiving process
+        if (!$defaultLocation) {
+            throw new \RuntimeException('No default location found for stock processing.');
+        }
+
+        DB::transaction(function () use ($purchaseOrder, $defaultLocation) {
+            foreach ($purchaseOrder->details as $detail) {
+                // 1. Create stock transaction for the received items
+                StockTransaction::create([
+                    'product_id' => $detail->product_id,
+                    'location_id' => $defaultLocation->id,
+                    'type' => 'in',
+                    'quantity' => $detail->quantity,
+                    'reason' => 'Purchase order received',
+                    'reference' => $purchaseOrder->order_number,
+                    'user_id' => Auth::id(),
+                ]);
+
+                // 2. Update stock levels
+                $this->updateStockLevel($detail->product_id, $defaultLocation->id, $detail->quantity);
+            }
+        });
     }
 }

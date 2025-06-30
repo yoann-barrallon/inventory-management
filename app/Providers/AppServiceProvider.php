@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Listeners\PurchaseOrderEventListener;
 use App\Services\CategoryService;
 use App\Services\DashboardService;
 use App\Services\LocationService;
@@ -11,6 +12,7 @@ use App\Services\StockService;
 use App\Services\StockTransactionService;
 use App\Services\SupplierService;
 use App\Services\UserService;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -37,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register event listeners
+        Event::subscribe(PurchaseOrderEventListener::class);
     }
 }
