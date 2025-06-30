@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UserRequest extends FormRequest
+class UserProfileRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -19,14 +21,13 @@ class UserRequest extends FormRequest
      */
     public function rules(): array
     {
-        $userId = $this->route('user')?->id;
+        $userId = auth()->id();
 
         return [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $userId,
-            'password' => $this->isMethod('POST') ? 'required|string|min:8|confirmed' : 'nullable|string|min:8|confirmed',
-            'roles' => 'nullable|array',
-            'roles.*' => 'exists:roles,name',
+            'current_password' => 'nullable|string|current_password',
+            'password' => 'nullable|string|min:8|confirmed',
         ];
     }
 
@@ -38,8 +39,8 @@ class UserRequest extends FormRequest
         return [
             'name' => 'full name',
             'email' => 'email address',
-            'password' => 'password',
-            'roles' => 'roles',
+            'current_password' => 'current password',
+            'password' => 'new password',
         ];
     }
 
@@ -49,10 +50,9 @@ class UserRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.unique' => 'This email address is already registered.',
-            'password.required' => 'Password is required when creating a new user.',
+            'email.unique' => 'This email address is already taken.',
+            'current_password.current_password' => 'The current password is incorrect.',
             'password.confirmed' => 'Password confirmation does not match.',
-            'roles.*.exists' => 'One or more selected roles are invalid.',
         ];
     }
 }
