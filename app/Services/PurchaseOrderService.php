@@ -526,35 +526,4 @@ class PurchaseOrderService
             return $purchaseOrder->status; // No change
         }
     }
-
-    /**
-     * Process received order by updating stock levels (legacy method - use receiveOrderItems instead).
-     */
-    private function processReceivedOrder(PurchaseOrder $purchaseOrder): void
-    {
-        // Get the default location (first location) - in a real app, this could be configurable
-        $defaultLocation = Location::first();
-        
-        if (!$defaultLocation) {
-            throw new \RuntimeException('No default location found for stock processing.');
-        }
-
-        DB::transaction(function () use ($purchaseOrder, $defaultLocation) {
-            foreach ($purchaseOrder->details as $detail) {
-                // 1. Create stock transaction for the received items
-                StockTransaction::create([
-                    'product_id' => $detail->product_id,
-                    'location_id' => $defaultLocation->id,
-                    'type' => 'in',
-                    'quantity' => $detail->quantity,
-                    'reason' => 'Purchase order received',
-                    'reference' => $purchaseOrder->order_number,
-                    'user_id' => Auth::id(),
-                ]);
-
-                // 2. Update stock levels
-                $this->updateStockLevel($detail->product_id, $defaultLocation->id, $detail->quantity);
-            }
-        });
-    }
 }
