@@ -88,7 +88,7 @@ class PurchaseOrderService
             ]);
 
             // Fire event
-            Event::dispatch('purchase-order.created', $purchaseOrder);
+            event('purchase-order.created', [$purchaseOrder]);
 
             return [
                 'success' => true,
@@ -137,7 +137,7 @@ class PurchaseOrderService
             ]);
 
             // Fire event
-            Event::dispatch('purchase-order.updated', $purchaseOrder);
+            event('purchase-order.updated', [$purchaseOrder]);
 
             return [
                 'success' => true,
@@ -175,8 +175,8 @@ class PurchaseOrderService
             'user_id' => Auth::id(),
         ]);
 
-        // Fire event
-        Event::dispatch('purchase-order.status-changed', $purchaseOrder, $oldStatus, $status);
+                    // Fire event
+            event('purchase-order.status-changed', [$purchaseOrder, $oldStatus, $status]);
 
         return [
             'success' => true,
@@ -280,7 +280,7 @@ class PurchaseOrderService
             ]);
 
             // Fire event
-            Event::dispatch('purchase-order.items-received', $purchaseOrder, $receivedDetails, $location);
+            event('purchase-order.items-received', [$purchaseOrder, $receivedDetails, $location]);
 
             return [
                 'success' => true,
