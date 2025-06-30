@@ -1,64 +1,160 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StockTransactionRequest;
+use App\Http\Requests\StockTransferRequest;
+use App\Http\Requests\StockLevelsRequest;
+use App\Http\Requests\ProductHistoryRequest;
+use App\Http\Requests\LocationHistoryRequest;
+use App\Services\StockTransactionService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class StockTransactionController extends Controller
 {
+    public function __construct(
+        private readonly StockTransactionService $stockTransactionService
+    ) {}
+
     /**
-     * Display a listing of the resource.
+     * Display a listing of stock transactions.
      */
-    public function index()
+    public function index(Request $request): Response
     {
-        //
+        $transactions = $this->stockTransactionService->getPaginatedTransactions($request);
+        $formData = $this->stockTransactionService->getFormData();
+
+        return Inertia::render('Inventory/StockTransactions/Index', [
+            'transactions' => $transactions,
+            'products' => $formData['products'],
+            'locations' => $formData['locations'],
+            'filters' => [
+                'search' => $request->input('search'),
+                'product' => $request->input('product'),
+                'location' => $request->input('location'),
+                'type' => $request->input('type'),
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+                'sort' => $request->input('sort', 'created_at'),
+                'direction' => $request->input('direction', 'desc'),
+            ],
+        ]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Show the form for creating a stock-in transaction.
      */
-    public function create()
+    public function createStockIn(): Response
     {
-        //
+        $formData = $this->stockTransactionService->getFormData();
+
+        return Inertia::render('Inventory/StockTransactions/CreateStockIn', $formData);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Show the form for creating a stock-out transaction.
      */
-    public function store(Request $request)
+    public function createStockOut(): Response
     {
-        //
+        $formData = $this->stockTransactionService->getFormData();
+
+        return Inertia::render('Inventory/StockTransactions/CreateStockOut', $formData);
     }
 
     /**
-     * Display the specified resource.
+     * Show the form for creating a stock adjustment.
      */
-    public function show(string $id)
+    public function createAdjustment(): Response
     {
-        //
+        $formData = $this->stockTransactionService->getFormData();
+
+        return Inertia::render('Inventory/StockTransactions/CreateAdjustment', $formData);
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Show the form for transferring stock between locations.
      */
-    public function edit(string $id)
+    public function createTransfer(): Response
     {
-        //
+        $formData = $this->stockTransactionService->getFormData();
+
+        return Inertia::render('Inventory/StockTransactions/CreateTransfer', $formData);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Process a stock transaction.
      */
-    public function update(Request $request, string $id)
+    public function store(StockTransactionRequest $request): RedirectResponse
     {
-        //
+        $result = $this->stockTransactionService->processTransaction($request->validated());
+
+        $redirectResponse = redirect()->route('inventory.stock-transactions.index');
+
+        if ($result['success']) {
+            return $redirectResponse->with('success', $result['message']);
+        }
+
+        return $redirectResponse->with('error', $result['message']);
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Process a stock transfer between locations.
      */
-    public function destroy(string $id)
+    public function transfer(StockTransferRequest $request): RedirectResponse
     {
-        //
+        $result = $this->stockTransactionService->transferStock($request->validated());
+
+        $redirectResponse = redirect()->route('inventory.stock-transactions.index');
+
+        if ($result['success']) {
+            return $redirectResponse->with('success', $result['message']);
+        }
+
+        return $redirectResponse->with('error', $result['message']);
+    }
+
+    /**
+     * Get stock levels for a product at a location (AJAX endpoint).
+     */
+    public function getStockLevels(StockLevelsRequest $request): JsonResponse
+    {
+        $stockLevels = $this->stockTransactionService->getStockLevels(
+            $request->integer('product_id'),
+            $request->integer('location_id')
+        );
+
+        return response()->json($stockLevels);
+    }
+
+    /**
+     * Get transaction history for a product (AJAX endpoint).
+     */
+    public function getProductHistory(ProductHistoryRequest $request): JsonResponse
+    {
+        $product = \App\Models\Product::findOrFail($request->integer('product_id'));
+        $limit = $request->integer('limit', 20);
+
+        $history = $this->stockTransactionService->getProductTransactionHistory($product, $limit);
+
+        return response()->json($history);
+    }
+
+    /**
+     * Get transaction history for a location (AJAX endpoint).
+     */
+    public function getLocationHistory(LocationHistoryRequest $request): JsonResponse
+    {
+        $location = \App\Models\Location::findOrFail($request->integer('location_id'));
+        $limit = $request->integer('limit', 20);
+
+        $history = $this->stockTransactionService->getLocationTransactionHistory($location, $limit);
+
+        return response()->json($history);
     }
 }

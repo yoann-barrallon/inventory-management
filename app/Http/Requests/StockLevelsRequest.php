@@ -6,7 +6,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StockTransactionRequest extends FormRequest
+class StockLevelsRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,10 +24,6 @@ class StockTransactionRequest extends FormRequest
         return [
             'product_id' => 'required|exists:products,id',
             'location_id' => 'required|exists:locations,id',
-            'type' => 'required|in:in,out,adjustment',
-            'quantity' => 'required|integer|min:1',
-            'reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:1000',
         ];
     }
 
@@ -39,21 +35,6 @@ class StockTransactionRequest extends FormRequest
         return [
             'product_id' => 'product',
             'location_id' => 'location',
-            'type' => 'transaction type',
-            'quantity' => 'quantity',
-            'reference' => 'reference number',
-            'notes' => 'notes',
-        ];
-    }
-
-    /**
-     * Get custom error messages.
-     */
-    public function messages(): array
-    {
-        return [
-            'type.in' => 'Transaction type must be stock in, stock out, or adjustment.',
-            'quantity.min' => 'Quantity must be at least 1.',
         ];
     }
 }
