@@ -4,38 +4,35 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\GenericFilterDto;
 use App\Models\Location;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\Request;
 
 class LocationService
 {
     /**
      * Get paginated locations with filters.
      */
-    public function getPaginatedLocations(Request $request): LengthAwarePaginator
+    public function getPaginatedLocations(GenericFilterDto $filters): LengthAwarePaginator
     {
         $query = Location::query();
 
         // Apply search filter
-        if ($request->filled('search')) {
-            $this->applySearchFilter($query, $request->input('search'));
+        if ($filters->hasSearch()) {
+            $this->applySearchFilter($query, $filters->search);
         }
 
         // Apply status filter
-        if ($request->filled('status')) {
-            $this->applyStatusFilter($query, $request->input('status'));
+        if ($filters->hasStatus()) {
+            $this->applyStatusFilter($query, $filters->status);
         }
 
         // Apply sorting
-        $sortField = $request->input('sort', 'name');
-        $sortDirection = $request->input('direction', 'asc');
-        $query->orderBy($sortField, $sortDirection);
+        $query->orderBy($filters->sortBy, $filters->sortDirection);
 
         return $query->withSum('stocks', 'quantity')
             ->withCount('stocks')
-            ->paginate(15)
-            ->withQueryString();
+            ->paginate($filters->perPage);
     }
 
     /**

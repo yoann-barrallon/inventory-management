@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\StockFilterDto;
 use App\Models\Location;
 use App\Models\Product;
 use App\Models\Stock;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class StockService
@@ -25,16 +25,16 @@ class StockService
     /**
      * Get paginated stock levels with filters.
      */
-    public function getPaginatedStockLevels(Request $request): LengthAwarePaginator
+    public function getPaginatedStockLevels(StockFilterDto $filters): LengthAwarePaginator
     {
         $query = Stock::with(['product.category', 'location'])
             ->join('products', 'stocks.product_id', '=', 'products.id')
             ->select('stocks.*');
 
-        $this->applyFilters($query, $request);
-        $this->applySorting($query, $request);
+        $this->applyFilters($query, $filters);
+        $this->applySorting($query, $filters);
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate($filters->perPage);
     }
 
     /**
@@ -278,41 +278,37 @@ class StockService
     /**
      * Apply filters to the stock query.
      */
-    private function applyFilters(Builder $query, Request $request): void
+    private function applyFilters(Builder $query, StockFilterDto $filters): void
     {
         // Product filter
-        if ($request->filled('product')) {
-            $query->where('stocks.product_id', $request->input('product'));
+        if ($filters->hasProduct()) {
+            $query->where('stocks.product_id', $filters->product);
         }
 
         // Location filter
-        if ($request->filled('location')) {
-            $query->where('stocks.location_id', $request->input('location'));
-        }
-
-        // Category filter
-        if ($request->filled('category')) {
-            $query->where('products.category_id', $request->input('category'));
+        if ($filters->hasLocation()) {
+            $query->where('stocks.location_id', $filters->location);
         }
 
         // Stock level filter
-        if ($request->filled('stock_level')) {
-            $level = $request->input('stock_level');
+        if ($filters->hasStockLevel()) {
+            $level = $filters->stockLevel;
             if ($level === 'low') {
                 $query->whereRaw('stocks.quantity <= products.min_stock_level');
             } elseif ($level === 'zero') {
                 $query->where('stocks.quantity', 0);
             } elseif ($level === 'positive') {
                 $query->where('stocks.quantity', '>', 0);
+            } elseif ($level === 'overstock') {
+                $query->whereRaw('stocks.quantity > (products.min_stock_level * 3)');
             }
         }
 
         // Search filter
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('products.name', 'like', "%{$search}%")
-                  ->orWhere('products.sku', 'like', "%{$search}%");
+        if ($filters->hasSearch()) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('products.name', 'like', "%{$filters->search}%")
+                  ->orWhere('products.sku', 'like', "%{$filters->search}%");
             });
         }
     }
@@ -320,16 +316,13 @@ class StockService
     /**
      * Apply sorting to the stock query.
      */
-    private function applySorting(Builder $query, Request $request): void
+    private function applySorting(Builder $query, StockFilterDto $filters): void
     {
-        $sortField = $request->input('sort', 'products.name');
-        $sortDirection = $request->input('direction', 'asc');
-        
         // Handle special sorting cases
-        if ($sortField === 'stock_value') {
-            $query->orderByRaw('(stocks.quantity * products.cost_price) ' . $sortDirection);
+        if ($filters->sortBy === 'stock_value') {
+            $query->orderByRaw('(stocks.quantity * products.cost_price) ' . $filters->sortDirection);
         } else {
-            $query->orderBy($sortField, $sortDirection);
+            $query->orderBy($filters->sortBy, $filters->sortDirection);
         }
     }
 }

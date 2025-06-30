@@ -4,30 +4,28 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\GenericFilterDto;
 use App\Models\Category;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\Request;
 
 class CategoryService
 {
     /**
      * Get paginated categories with filters.
      */
-    public function getPaginatedCategories(Request $request): LengthAwarePaginator
+    public function getPaginatedCategories(GenericFilterDto $filters): LengthAwarePaginator
     {
         $query = Category::query();
 
         // Apply search filter
-        if ($request->filled('search')) {
-            $this->applySearchFilter($query, $request->input('search'));
+        if ($filters->hasSearch()) {
+            $this->applySearchFilter($query, $filters->search);
         }
 
         // Apply sorting
-        $sortField = $request->input('sort', 'name');
-        $sortDirection = $request->input('direction', 'asc');
-        $query->orderBy($sortField, $sortDirection);
+        $query->orderBy($filters->sortBy, $filters->sortDirection);
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate($filters->perPage);
     }
 
     /**

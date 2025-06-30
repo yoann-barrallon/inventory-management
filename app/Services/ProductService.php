@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\ProductFilterDto;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Supplier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
 
 class ProductService
 {
@@ -24,17 +24,16 @@ class ProductService
     /**
      * Get paginated products with filters and relationships.
      */
-    public function getPaginatedProducts(Request $request): LengthAwarePaginator
+    public function getPaginatedProducts(ProductFilterDto $filters): LengthAwarePaginator
     {
         $query = Product::with(['category', 'supplier']);
 
-        $this->applyFilters($query, $request);
-        $this->applySorting($query, $request);
+        $this->applyFilters($query, $filters);
+        $this->applySorting($query, $filters);
 
         return $query->withSum('stocks', 'quantity')
             ->withSum('stocks', 'reserved_quantity')
-            ->paginate(15)
-            ->withQueryString();
+            ->paginate($filters->perPage);
     }
 
     /**
@@ -155,30 +154,30 @@ class ProductService
     /**
      * Apply all filters to the query.
      */
-    private function applyFilters(Builder $query, Request $request): void
+    private function applyFilters(Builder $query, ProductFilterDto $filters): void
     {
         // Search filter
-        if ($request->filled('search')) {
-            $this->applySearchFilter($query, $request->input('search'));
+        if ($filters->hasSearch()) {
+            $this->applySearchFilter($query, $filters->search);
         }
 
         // Category filter
-        if ($request->filled('category')) {
-            $query->where('category_id', $request->input('category'));
+        if ($filters->hasCategory()) {
+            $query->where('category_id', $filters->category);
         }
 
         // Supplier filter
-        if ($request->filled('supplier')) {
-            $query->where('supplier_id', $request->input('supplier'));
+        if ($filters->hasSupplier()) {
+            $query->where('supplier_id', $filters->supplier);
         }
 
         // Active status filter
-        if ($request->filled('status')) {
-            $this->applyStatusFilter($query, $request->input('status'));
+        if ($filters->hasStatus()) {
+            $this->applyStatusFilter($query, $filters->status);
         }
 
         // Low stock filter
-        if ($request->filled('low_stock') && $request->input('low_stock') === 'true') {
+        if ($filters->lowStock) {
             $this->applyLowStockFilter($query);
         }
     }
@@ -221,11 +220,9 @@ class ProductService
     /**
      * Apply sorting to query.
      */
-    private function applySorting(Builder $query, Request $request): void
+    private function applySorting(Builder $query, ProductFilterDto $filters): void
     {
-        $sortField = $request->input('sort', 'name');
-        $sortDirection = $request->input('direction', 'asc');
-        $query->orderBy($sortField, $sortDirection);
+        $query->orderBy($filters->sortBy, $filters->sortDirection);
     }
 
     /**

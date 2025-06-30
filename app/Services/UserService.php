@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\UserFilterDto;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
@@ -15,14 +15,14 @@ class UserService
     /**
      * Get paginated users with filters.
      */
-    public function getPaginatedUsers(Request $request): LengthAwarePaginator
+    public function getPaginatedUsers(UserFilterDto $filters): LengthAwarePaginator
     {
         $query = User::with('roles');
 
-        $this->applyFilters($query, $request);
-        $this->applySorting($query, $request);
+        $this->applyFilters($query, $filters);
+        $this->applySorting($query, $filters);
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate($filters->perPage);
     }
 
     /**
@@ -208,28 +208,26 @@ class UserService
     /**
      * Apply filters to the query.
      */
-    private function applyFilters($query, Request $request): void
+    private function applyFilters($query, UserFilterDto $filters): void
     {
         // Search filter
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+        if ($filters->hasSearch()) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('name', 'like', "%{$filters->search}%")
+                  ->orWhere('email', 'like', "%{$filters->search}%");
             });
         }
 
         // Role filter
-        if ($request->filled('role')) {
-            $query->role($request->input('role'));
+        if ($filters->hasRole()) {
+            $query->role($filters->role);
         }
 
-        // Active filter (if you have an 'active' column)
-        if ($request->filled('status')) {
-            $status = $request->input('status');
-            if ($status === 'active') {
+        // Status filter
+        if ($filters->hasStatus()) {
+            if ($filters->status === 'active') {
                 $query->whereNotNull('email_verified_at');
-            } elseif ($status === 'inactive') {
+            } elseif ($filters->status === 'inactive') {
                 $query->whereNull('email_verified_at');
             }
         }
@@ -238,10 +236,8 @@ class UserService
     /**
      * Apply sorting to the query.
      */
-    private function applySorting($query, Request $request): void
+    private function applySorting($query, UserFilterDto $filters): void
     {
-        $sortField = $request->input('sort', 'name');
-        $sortDirection = $request->input('direction', 'asc');
-        $query->orderBy($sortField, $sortDirection);
+        $query->orderBy($filters->sortBy, $filters->sortDirection);
     }
 }

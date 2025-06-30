@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\StockTransactionFilterDto;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Models\StockTransaction;
 use App\Models\Location;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -26,14 +26,14 @@ class StockTransactionService
     /**
      * Get paginated stock transactions with filters.
      */
-    public function getPaginatedTransactions(Request $request): LengthAwarePaginator
+    public function getPaginatedTransactions(StockTransactionFilterDto $filters): LengthAwarePaginator
     {
         $query = StockTransaction::with(['product', 'location', 'user']);
 
-        $this->applyFilters($query, $request);
-        $this->applySorting($query, $request);
+        $this->applyFilters($query, $filters);
+        $this->applySorting($query, $filters);
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate($filters->perPage);
     }
 
     /**
@@ -207,41 +207,47 @@ class StockTransactionService
     /**
      * Apply filters to the query.
      */
-    private function applyFilters($query, Request $request): void
+    private function applyFilters($query, StockTransactionFilterDto $filters): void
     {
         // Product filter
-        if ($request->filled('product')) {
-            $query->where('product_id', $request->input('product'));
+        if ($filters->hasProduct()) {
+            $query->where('product_id', $filters->product);
         }
 
         // Location filter
-        if ($request->filled('location')) {
-            $query->where('location_id', $request->input('location'));
+        if ($filters->hasLocation()) {
+            $query->where('location_id', $filters->location);
+        }
+
+        // User filter
+        if ($filters->hasUser()) {
+            $query->where('user_id', $filters->user);
         }
 
         // Type filter
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
+        if ($filters->hasType()) {
+            $query->where('type', $filters->type);
         }
 
         // Date range filter
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->input('date_from'));
-        }
+        if ($filters->hasDateRange()) {
+            if ($filters->dateFrom) {
+                $query->whereDate('created_at', '>=', $filters->dateFrom);
+            }
 
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->input('date_to'));
+            if ($filters->dateTo) {
+                $query->whereDate('created_at', '<=', $filters->dateTo);
+            }
         }
 
         // Search filter
-        if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $search = $request->input('search');
-                $q->where('reference', 'like', "%{$search}%")
-                  ->orWhere('notes', 'like', "%{$search}%")
-                  ->orWhereHas('product', function ($productQuery) use ($search) {
-                      $productQuery->where('name', 'like', "%{$search}%")
-                                  ->orWhere('sku', 'like', "%{$search}%");
+        if ($filters->hasSearch()) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('reference', 'like', "%{$filters->search}%")
+                  ->orWhere('notes', 'like', "%{$filters->search}%")
+                  ->orWhereHas('product', function ($productQuery) use ($filters) {
+                      $productQuery->where('name', 'like', "%{$filters->search}%")
+                                  ->orWhere('sku', 'like', "%{$filters->search}%");
                   });
             });
         }
@@ -250,11 +256,9 @@ class StockTransactionService
     /**
      * Apply sorting to the query.
      */
-    private function applySorting($query, Request $request): void
+    private function applySorting($query, StockTransactionFilterDto $filters): void
     {
-        $sortField = $request->input('sort', 'created_at');
-        $sortDirection = $request->input('direction', 'desc');
-        $query->orderBy($sortField, $sortDirection);
+        $query->orderBy($filters->sortBy, $filters->sortDirection);
     }
 
     /**

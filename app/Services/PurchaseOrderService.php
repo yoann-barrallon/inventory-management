@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\PurchaseOrderFilterDto;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderDetail;
@@ -12,7 +13,6 @@ use App\Models\Stock;
 use App\Models\StockTransaction;
 use App\Models\Location;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -32,14 +32,14 @@ class PurchaseOrderService
     /**
      * Get paginated purchase orders with filters.
      */
-    public function getPaginatedPurchaseOrders(Request $request): LengthAwarePaginator
+    public function getPaginatedPurchaseOrders(PurchaseOrderFilterDto $filters): LengthAwarePaginator
     {
         $query = PurchaseOrder::with(['supplier', 'user']);
 
-        $this->applyFilters($query, $request);
-        $this->applySorting($query, $request);
+        $this->applyFilters($query, $filters);
+        $this->applySorting($query, $filters);
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate($filters->perPage);
     }
 
     /**
@@ -364,35 +364,36 @@ class PurchaseOrderService
     /**
      * Apply filters to the query.
      */
-    private function applyFilters($query, Request $request): void
+    private function applyFilters($query, PurchaseOrderFilterDto $filters): void
     {
         // Supplier filter
-        if ($request->filled('supplier')) {
-            $query->where('supplier_id', $request->input('supplier'));
+        if ($filters->hasSupplier()) {
+            $query->where('supplier_id', $filters->supplier);
         }
 
         // Status filter
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
+        if ($filters->hasStatus()) {
+            $query->where('status', $filters->status);
         }
 
         // Date range filter
-        if ($request->filled('date_from')) {
-            $query->whereDate('order_date', '>=', $request->input('date_from'));
-        }
+        if ($filters->hasDateRange()) {
+            if ($filters->dateFrom) {
+                $query->whereDate('order_date', '>=', $filters->dateFrom);
+            }
 
-        if ($request->filled('date_to')) {
-            $query->whereDate('order_date', '<=', $request->input('date_to'));
+            if ($filters->dateTo) {
+                $query->whereDate('order_date', '<=', $filters->dateTo);
+            }
         }
 
         // Search filter
-        if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $search = $request->input('search');
-                $q->where('order_number', 'like', "%{$search}%")
-                  ->orWhere('notes', 'like', "%{$search}%")
-                  ->orWhereHas('supplier', function ($supplierQuery) use ($search) {
-                      $supplierQuery->where('name', 'like', "%{$search}%");
+        if ($filters->hasSearch()) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('order_number', 'like', "%{$filters->search}%")
+                  ->orWhere('notes', 'like', "%{$filters->search}%")
+                  ->orWhereHas('supplier', function ($supplierQuery) use ($filters) {
+                      $supplierQuery->where('name', 'like', "%{$filters->search}%");
                   });
             });
         }
@@ -401,11 +402,9 @@ class PurchaseOrderService
     /**
      * Apply sorting to the query.
      */
-    private function applySorting($query, Request $request): void
+    private function applySorting($query, PurchaseOrderFilterDto $filters): void
     {
-        $sortField = $request->input('sort', 'order_date');
-        $sortDirection = $request->input('direction', 'desc');
-        $query->orderBy($sortField, $sortDirection);
+        $query->orderBy($filters->sortBy, $filters->sortDirection);
     }
 
     /**
