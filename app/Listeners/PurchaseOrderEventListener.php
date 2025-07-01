@@ -131,7 +131,7 @@ class PurchaseOrderEventListener
         if (config('inventory.notifications.purchase_order_events.confirmed')) {
             $this->notifySupplier($purchaseOrder, [
                 'message' => "Purchase order {$purchaseOrder->order_number} has been confirmed.",
-                'expected_date' => $purchaseOrder->expected_date?->format('Y-m-d'),
+                'expected_date' => $purchaseOrder->expected_date,
             ]);
         }
 
