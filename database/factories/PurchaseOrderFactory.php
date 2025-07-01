@@ -22,7 +22,7 @@ class PurchaseOrderFactory extends Factory
         $expectedDate = $this->faker->dateTimeBetween($orderDate, '+30 days');
 
         return [
-            'order_number' => $this->faker->unique()->bothify('PO##########'),
+            'order_number' => $this->faker->unique()->bothify('PO########-########'),
             'supplier_id' => Supplier::factory(),
             'user_id' => User::factory(),
             'order_date' => $orderDate,

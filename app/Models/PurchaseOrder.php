@@ -59,19 +59,8 @@ class PurchaseOrder extends Model
      */
     public static function generateOrderNumber(): string
     {
-        $prefix = 'PO';
         $date = now()->format('Ymd');
-        $lastOrder = static::where('order_number', 'like', $prefix . $date . '%')
-            ->orderBy('order_number', 'desc')
-            ->first();
-
-        if ($lastOrder) {
-            $lastNumber = (int) substr($lastOrder->order_number, -4);
-            $newNumber = str_pad((string) ($lastNumber + 1), 4, '0', STR_PAD_LEFT);
-        } else {
-            $newNumber = '0001';
-        }
-
-        return $prefix . $date . $newNumber;
+        $uid = substr(uniqid(), -8);
+        return "PO{$date}-{$uid}";
     }
 }

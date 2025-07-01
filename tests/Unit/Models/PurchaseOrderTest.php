@@ -130,92 +130,7 @@ class PurchaseOrderTest extends TestCase
         $orderNumber = PurchaseOrder::generateOrderNumber();
 
         $this->assertStringStartsWith('PO20240101', $orderNumber);
-        $this->assertEquals(14, strlen($orderNumber)); // PO + 8 digits date + 4 digits sequence
-        $this->assertMatchesRegularExpression('/^PO\d{8}\d{4}$/', $orderNumber);
-    }
-
-    /**
-     * Test generateOrderNumber increments sequence correctly.
-     */
-    public function test_generate_order_number_increments_sequence(): void
-    {
-        // Mock the current date
-        Carbon::setTestNow('2024-01-01 12:00:00');
-
-        // Create some existing orders for the same date
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010001']);
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010002']);
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010003']);
-
-        $orderNumber = PurchaseOrder::generateOrderNumber();
-
-        $this->assertEquals('PO202401010004', $orderNumber);
-    }
-
-    /**
-     * Test generateOrderNumber starts from 0001 when no existing orders.
-     */
-    public function test_generate_order_number_starts_from_0001(): void
-    {
-        // Mock the current date
-        Carbon::setTestNow('2024-02-15 10:00:00');
-
-        $orderNumber = PurchaseOrder::generateOrderNumber();
-
-        $this->assertEquals('PO202402150001', $orderNumber);
-    }
-
-    /**
-     * Test generateOrderNumber handles different dates correctly.
-     */
-    public function test_generate_order_number_different_dates(): void
-    {
-        // Create orders for a previous date
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010001']);
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010002']);
-
-        // Mock a new date
-        Carbon::setTestNow('2024-02-01 12:00:00');
-
-        $orderNumber = PurchaseOrder::generateOrderNumber();
-
-        // Should start from 0001 for the new date
-        $this->assertEquals('PO202402010001', $orderNumber);
-    }
-
-    /**
-     * Test generateOrderNumber handles high sequence numbers correctly.
-     */
-    public function test_generate_order_number_high_sequence(): void
-    {
-        // Mock the current date
-        Carbon::setTestNow('2024-01-01 12:00:00');
-
-        // Create an order with a high sequence number
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401019999']);
-
-        $orderNumber = PurchaseOrder::generateOrderNumber();
-
-        $this->assertEquals('PO2024010110000', $orderNumber);
-    }
-
-    /**
-     * Test generateOrderNumber with non-sequential existing orders.
-     */
-    public function test_generate_order_number_non_sequential_orders(): void
-    {
-        // Mock the current date
-        Carbon::setTestNow('2024-01-01 12:00:00');
-
-        // Create orders with gaps in sequence
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010001']);
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010005']);
-        PurchaseOrder::factory()->create(['order_number' => 'PO202401010003']);
-
-        $orderNumber = PurchaseOrder::generateOrderNumber();
-
-        // Should take the highest number and increment
-        $this->assertEquals('PO202401010006', $orderNumber);
+        $this->assertMatchesRegularExpression('/^PO\d{8}-[a-z0-9]{8}$/', $orderNumber);
     }
 
     /**
@@ -228,8 +143,10 @@ class PurchaseOrderTest extends TestCase
         $supplier = Supplier::factory()->create();
         $user = User::factory()->create();
 
+        $orderNumber = PurchaseOrder::generateOrderNumber();
+
         $purchaseOrder = PurchaseOrder::create([
-            'order_number' => PurchaseOrder::generateOrderNumber(),
+            'order_number' => $orderNumber,
             'supplier_id' => $supplier->id,
             'order_date' => now(),
             'expected_date' => now()->addDays(14),
@@ -238,9 +155,10 @@ class PurchaseOrderTest extends TestCase
             'user_id' => $user->id,
         ]);
 
-        $this->assertEquals('PO202401010001', $purchaseOrder->order_number);
+        $this->assertStringStartsWith('PO20240101', $purchaseOrder->order_number);
+        $this->assertMatchesRegularExpression('/^PO\d{8}-[a-z0-9]{8}$/', $purchaseOrder->order_number);
         $this->assertDatabaseHas('purchase_orders', [
-            'order_number' => 'PO202401010001',
+            'order_number' => $purchaseOrder->order_number,
         ]);
     }
 } 
