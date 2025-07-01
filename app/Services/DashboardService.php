@@ -11,6 +11,7 @@ use App\Models\PurchaseOrder;
 use App\Models\StockTransaction;
 use App\Models\Supplier;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -67,7 +68,7 @@ class DashboardService
             'total_categories' => $totalCategories,
             'total_suppliers' => $totalSuppliers,
             'total_locations' => $totalLocations,
-            'total_stock_value' => number_format($totalStockValue, 2),
+            'total_stock_value' => number_format((float) $totalStockValue, 2),
             'low_stock_count' => $lowStockCount,
             'recent_transactions' => $recentTransactionsCount,
             'pending_purchase_orders' => $pendingPurchaseOrders,
@@ -94,7 +95,7 @@ class DashboardService
     /**
      * Get recent activity from stock transactions.
      */
-    public function getRecentActivity(int $limit = 10): \Illuminate\Database\Eloquent\Collection
+    public function getRecentActivity(int $limit = 10): Collection
     {
         return StockTransaction::with(['product', 'location', 'user'])
             ->orderBy('created_at', 'desc')
@@ -117,16 +118,20 @@ class DashboardService
     /**
      * Get stock distribution by category.
      */
-    public function getStockByCategory(): \Illuminate\Database\Eloquent\Collection
+    public function getStockByCategory(): Collection
     {
-        return Category::withSum('products.stocks', 'quantity')
-            ->having('products_stocks_sum_quantity', '>', 0)
-            ->orderBy('products_stocks_sum_quantity', 'desc')
-            ->get(['id', 'name'])
+        return Category::select('categories.id', 'categories.name')
+            ->join('products', 'categories.id', '=', 'products.category_id')
+            ->join('stocks', 'products.id', '=', 'stocks.product_id')
+            ->selectRaw('SUM(stocks.quantity) as total_quantity')
+            ->groupBy('categories.id', 'categories.name')
+            ->havingRaw('SUM(stocks.quantity) > 0')
+            ->orderByRaw('SUM(stocks.quantity) desc')
+            ->get()
             ->map(function ($category) {
                 return [
                     'name' => $category->name,
-                    'quantity' => $category->products_stocks_sum_quantity ?? 0,
+                    'quantity' => (int) $category->total_quantity,
                 ];
             });
     }
@@ -134,16 +139,19 @@ class DashboardService
     /**
      * Get stock distribution by location.
      */
-    public function getStockByLocation(): \Illuminate\Database\Eloquent\Collection
+    public function getStockByLocation(): Collection
     {
-        return Location::withSum('stocks', 'quantity')
-            ->having('stocks_sum_quantity', '>', 0)
-            ->orderBy('stocks_sum_quantity', 'desc')
-            ->get(['id', 'name'])
+        return Location::select('locations.id', 'locations.name')
+            ->join('stocks', 'locations.id', '=', 'stocks.location_id')
+            ->selectRaw('SUM(stocks.quantity) as total_quantity')
+            ->groupBy('locations.id', 'locations.name')
+            ->havingRaw('SUM(stocks.quantity) > 0')
+            ->orderByRaw('SUM(stocks.quantity) desc')
+            ->get()
             ->map(function ($location) {
                 return [
                     'name' => $location->name,
-                    'quantity' => $location->stocks_sum_quantity ?? 0,
+                    'quantity' => (int) $location->total_quantity,
                 ];
             });
     }
@@ -157,7 +165,7 @@ class DashboardService
         $endDate = Carbon::now()->endOfMonth();
 
         $transactions = StockTransaction::select(
-                DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
+                DB::raw("TO_CHAR(created_at, 'YYYY-MM') as month"),
                 'type',
                 DB::raw('COUNT(*) as count'),
                 DB::raw('SUM(quantity) as total_quantity')
