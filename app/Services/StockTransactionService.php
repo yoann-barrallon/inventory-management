@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\DTOs\CreateStockTransactionDto;
 use App\DTOs\StockTransactionFilterDto;
+use App\DTOs\StockTransferDto;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Models\StockTransaction;
@@ -90,13 +91,13 @@ class StockTransactionService
     /**
      * Transfer stock between locations.
      */
-    public function transferStock(array $data): array
+    public function transferStock(StockTransferDto $data): array
     {
         return DB::transaction(function () use ($data) {
-            $fromLocationId = $data['from_location_id'];
-            $toLocationId = $data['to_location_id'];
-            $productId = $data['product_id'];
-            $quantity = $data['quantity'];
+            $fromLocationId = $data->fromLocationId;
+            $toLocationId = $data->toLocationId;
+            $productId = $data->productId;
+            $quantity = $data->quantity;
 
             // Get source stock
             $fromStock = Stock::where('product_id', $productId)
@@ -117,7 +118,7 @@ class StockTransactionService
                     'location_id' => $fromLocationId,
                     'type' => 'out',
                     'quantity' => $quantity,
-                    'reference' => $data['reference'] ?? 'Transfer',
+                    'reference' => $data->reference ?? 'Transfer',
                     'reason' => "Transfer to " . Location::find($toLocationId)->name,
                 ])
             );
@@ -133,7 +134,7 @@ class StockTransactionService
                     'location_id' => $toLocationId,
                     'type' => 'in',
                     'quantity' => $quantity,
-                    'reference' => $data['reference'] ?? 'Transfer',
+                    'reference' => $data->reference ?? 'Transfer',
                     'reason' => "Transfer from " . Location::find($fromLocationId)->name,
                 ])
             );
@@ -249,7 +250,7 @@ class StockTransactionService
         if ($filters->hasSearch()) {
             $query->where(function ($q) use ($filters) {
                 $q->where('reference', 'like', "%{$filters->search}%")
-                  ->orWhere('notes', 'like', "%{$filters->search}%")
+                  ->orWhere('reason', 'like', "%{$filters->search}%")
                   ->orWhereHas('product', function ($productQuery) use ($filters) {
                       $productQuery->where('name', 'like', "%{$filters->search}%")
                                   ->orWhere('sku', 'like', "%{$filters->search}%");
