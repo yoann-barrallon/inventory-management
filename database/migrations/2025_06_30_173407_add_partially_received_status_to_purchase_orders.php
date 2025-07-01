@@ -12,10 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // For SQLite compatibility, we need to recreate the table
+        // Add the new status value to the existing enum
         Schema::table('purchase_orders', function (Blueprint $table) {
-            // SQLite doesn't support modifying enum columns, so we need to be creative
-            // We'll add a temporary column, copy data, drop old column, rename new column
+            // For PostgreSQL, we can use a check constraint instead of modifying enum
             $table->string('status_new')->default('pending');
         });
 
@@ -30,20 +29,34 @@ return new class extends Migration
             $table->renameColumn('status_new', 'status');
         });
 
-        // Now update the column to be an enum-like check constraint (SQLite compatible)
-        DB::statement('CREATE TRIGGER check_purchase_order_status 
-                      BEFORE UPDATE OF status ON purchase_orders
-                      FOR EACH ROW WHEN NEW.status NOT IN (\'pending\', \'confirmed\', \'received\', \'partially_received\', \'cancelled\')
-                      BEGIN
-                          SELECT RAISE(ABORT, \'Invalid status value\');
-                      END');
+        // Create trigger function for PostgreSQL
+        DB::statement('
+            CREATE OR REPLACE FUNCTION check_purchase_order_status_func()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF NEW.status NOT IN (\'pending\', \'confirmed\', \'received\', \'partially_received\', \'cancelled\') THEN
+                    RAISE EXCEPTION \'Invalid status value: %\', NEW.status;
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        ');
 
-        DB::statement('CREATE TRIGGER check_purchase_order_status_insert 
-                      BEFORE INSERT ON purchase_orders
-                      FOR EACH ROW WHEN NEW.status NOT IN (\'pending\', \'confirmed\', \'received\', \'partially_received\', \'cancelled\')
-                      BEGIN
-                          SELECT RAISE(ABORT, \'Invalid status value\');
-                      END');
+        // Create trigger for UPDATE
+        DB::statement('
+            CREATE TRIGGER check_purchase_order_status
+            BEFORE UPDATE OF status ON purchase_orders
+            FOR EACH ROW
+            EXECUTE FUNCTION check_purchase_order_status_func();
+        ');
+
+        // Create trigger for INSERT
+        DB::statement('
+            CREATE TRIGGER check_purchase_order_status_insert
+            BEFORE INSERT ON purchase_orders
+            FOR EACH ROW
+            EXECUTE FUNCTION check_purchase_order_status_func();
+        ');
     }
 
     /**
@@ -57,7 +70,10 @@ return new class extends Migration
             ->update(['status' => 'received']);
 
         // Drop the triggers
-        DB::statement('DROP TRIGGER IF EXISTS check_purchase_order_status');
-        DB::statement('DROP TRIGGER IF EXISTS check_purchase_order_status_insert');
+        DB::statement('DROP TRIGGER IF EXISTS check_purchase_order_status ON purchase_orders');
+        DB::statement('DROP TRIGGER IF EXISTS check_purchase_order_status_insert ON purchase_orders');
+        
+        // Drop the trigger function
+        DB::statement('DROP FUNCTION IF EXISTS check_purchase_order_status_func()');
     }
 };
