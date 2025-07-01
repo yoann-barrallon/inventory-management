@@ -11,7 +11,7 @@ class GenericFilterDto
         public readonly ?string $status = null,
         public readonly string $sortBy = 'created_at',
         public readonly string $sortDirection = 'desc',
-        public readonly int $perPage = 15
+        public readonly int $perPage = 10
     ) {}
 
     public static function fromArray(array $data): self
@@ -21,7 +21,7 @@ class GenericFilterDto
             status: $data['status'] ?? null,
             sortBy: $data['sort_by'] ?? 'created_at',
             sortDirection: $data['sort_direction'] ?? 'desc',
-            perPage: isset($data['per_page']) ? (int) $data['per_page'] : 15
+            perPage: isset($data['per_page']) ? (int) $data['per_page'] : 10
         );
     }
 
