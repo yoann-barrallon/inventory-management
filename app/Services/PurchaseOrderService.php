@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\CreatePurchaseOrderDto;
+use App\DTOs\PurchaseOrderDetailDto;
 use App\DTOs\PurchaseOrderFilterDto;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
@@ -45,11 +47,11 @@ class PurchaseOrderService
     /**
      * Create a new purchase order.
      */
-    public function createPurchaseOrder(array $data): array
+    public function createPurchaseOrder(CreatePurchaseOrderDto $data): array
     {
         return DB::transaction(function () use ($data) {
             // Validate supplier exists and is active
-            $supplier = Supplier::where('id', $data['supplier_id'])
+            $supplier = Supplier::where('id', $data->supplierId)
                 ->where('is_active', true)
                 ->first();
             
@@ -62,21 +64,21 @@ class PurchaseOrderService
             // Create the purchase order
             $purchaseOrder = PurchaseOrder::create([
                 'order_number' => PurchaseOrder::generateOrderNumber(),
-                'supplier_id' => $data['supplier_id'],
+                'supplier_id' => $data->supplierId,
                 'status' => 'pending',
-                'order_date' => $data['order_date'] ?? now(),
-                'expected_date' => $data['expected_date'] ?? null,
-                'notes' => $data['notes'] ?? null,
+                'order_date' => $data->orderDate ?? now(),
+                'expected_date' => $data->expectedDate,
+                'notes' => $data->notes,
                 'user_id' => Auth::id(),
                 'subtotal' => 0,
-                'tax_rate' => $data['tax_rate'] ?? config('inventory.default_tax_rate', 0),
+                'tax_rate' => $data->taxRate ?? config('inventory.default_tax_rate', 0),
                 'tax_amount' => 0,
                 'total_amount' => 0,
             ]);
 
             // Add order details if provided
-            if (isset($data['details']) && is_array($data['details'])) {
-                $this->addOrderDetails($purchaseOrder, $data['details']);
+            if ($data->hasDetails()) {
+                $this->addOrderDetails($purchaseOrder, $data->details);
             }
 
             // Log the creation
@@ -409,6 +411,8 @@ class PurchaseOrderService
 
     /**
      * Add order details to purchase order.
+     *
+     * @param PurchaseOrderDetailDto[] $details
      */
     private function addOrderDetails(PurchaseOrder $purchaseOrder, array $details): void
     {
@@ -416,24 +420,24 @@ class PurchaseOrderService
 
         foreach ($details as $detail) {
             // Validate product exists and is active
-            $product = Product::where('id', $detail['product_id'])
+            $product = Product::where('id', $detail->productId)
                 ->where('is_active', true)
                 ->first();
                 
             if (!$product) {
                 throw ValidationException::withMessages([
-                    'product_id' => "Product {$detail['product_id']} is not available."
+                    'product_id' => "Product {$detail->productId} is not available."
                 ]);
             }
 
-            $lineTotal = $detail['quantity'] * $detail['unit_price'];
+            $lineTotal = $detail->getLineTotal();
             $subtotal += $lineTotal;
 
             PurchaseOrderDetail::create([
                 'purchase_order_id' => $purchaseOrder->id,
-                'product_id' => $detail['product_id'],
-                'quantity' => $detail['quantity'],
-                'unit_price' => $detail['unit_price'],
+                'product_id' => $detail->productId,
+                'quantity' => $detail->quantity,
+                'unit_price' => $detail->unitPrice,
                 'line_total' => $lineTotal,
             ]);
         }

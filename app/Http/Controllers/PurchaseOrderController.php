@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\CreatePurchaseOrderDto;
 use App\DTOs\PurchaseOrderFilterDto;
 use App\Http\Requests\PurchaseOrderRequest;
 use App\Http\Requests\PurchaseOrderStatusRequest;
@@ -51,7 +52,8 @@ class PurchaseOrderController extends Controller
      */
     public function store(PurchaseOrderRequest $request): RedirectResponse
     {
-        $result = $this->purchaseOrderService->createPurchaseOrder($request->validated());
+        $dto = CreatePurchaseOrderDto::fromArray($request->validated());
+        $result = $this->purchaseOrderService->createPurchaseOrder($dto);
 
         if ($result['success']) {
             return redirect()
@@ -192,7 +194,7 @@ class PurchaseOrderController extends Controller
 
         $duplicateData = [
             'supplier_id' => $originalOrder->supplier_id,
-            'order_date' => now(),
+            'order_date' => now()->format('Y-m-d'),
             'expected_date' => $originalOrder->expected_date,
             'notes' => 'Duplicated from order #' . $originalOrder->order_number,
             'tax_rate' => $originalOrder->tax_rate,
@@ -205,7 +207,8 @@ class PurchaseOrderController extends Controller
             })->toArray(),
         ];
 
-        $result = $this->purchaseOrderService->createPurchaseOrder($duplicateData);
+        $dto = CreatePurchaseOrderDto::fromArray($duplicateData);
+        $result = $this->purchaseOrderService->createPurchaseOrder($dto);
 
         if ($result['success']) {
             return redirect()
