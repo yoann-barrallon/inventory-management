@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTOs\CreateStockTransactionDto;
 use App\DTOs\StockTransactionFilterDto;
 use App\Models\Product;
 use App\Models\Stock;
@@ -39,7 +40,7 @@ class StockTransactionService
     /**
      * Process a stock transaction (in, out, or adjustment).
      */
-    public function processTransaction(array $data): array
+    public function processTransaction(CreateStockTransactionDto $data): array
     {
         return DB::transaction(function () use ($data) {
             // Validate the transaction
@@ -52,10 +53,10 @@ class StockTransactionService
             }
 
             // Get or create stock record
-            $stock = $this->getOrCreateStock($data['product_id'], $data['location_id']);
+            $stock = $this->getOrCreateStock($data->productId, $data->locationId);
             
             // Calculate new quantities
-            $newQuantity = $this->calculateNewQuantity($stock, $data['type'], $data['quantity']);
+            $newQuantity = $this->calculateNewQuantity($stock, $data->type, $data->quantity);
             
             if ($newQuantity < 0) {
                 return [
@@ -66,12 +67,12 @@ class StockTransactionService
 
             // Create the transaction record
             $transaction = StockTransaction::create([
-                'product_id' => $data['product_id'],
-                'location_id' => $data['location_id'],
-                'type' => $data['type'],
-                'quantity' => $data['quantity'],
-                'reference' => $data['reference'] ?? null,
-                'notes' => $data['notes'] ?? null,
+                'product_id' => $data->productId,
+                'location_id' => $data->locationId,
+                'type' => $data->type,
+                'quantity' => $data->quantity,
+                'reference' => $data->reference,
+                'reason' => $data->reason,
                 'user_id' => Auth::id(),
             ]);
 
@@ -110,28 +111,32 @@ class StockTransactionService
             }
 
             // Process outbound transaction
-            $outResult = $this->processTransaction([
-                'product_id' => $productId,
-                'location_id' => $fromLocationId,
-                'type' => 'out',
-                'quantity' => $quantity,
-                'reference' => $data['reference'] ?? 'Transfer',
-                'notes' => "Transfer to " . Location::find($toLocationId)->name,
-            ]);
+            $outResult = $this->processTransaction(
+                CreateStockTransactionDto::fromArray([
+                    'product_id' => $productId,
+                    'location_id' => $fromLocationId,
+                    'type' => 'out',
+                    'quantity' => $quantity,
+                    'reference' => $data['reference'] ?? 'Transfer',
+                    'reason' => "Transfer to " . Location::find($toLocationId)->name,
+                ])
+            );
 
             if (!$outResult['success']) {
                 return $outResult;
             }
 
             // Process inbound transaction
-            $inResult = $this->processTransaction([
-                'product_id' => $productId,
-                'location_id' => $toLocationId,
-                'type' => 'in',
-                'quantity' => $quantity,
-                'reference' => $data['reference'] ?? 'Transfer',
-                'notes' => "Transfer from " . Location::find($fromLocationId)->name,
-            ]);
+            $inResult = $this->processTransaction(
+                CreateStockTransactionDto::fromArray([
+                    'product_id' => $productId,
+                    'location_id' => $toLocationId,
+                    'type' => 'in',
+                    'quantity' => $quantity,
+                    'reference' => $data['reference'] ?? 'Transfer',
+                    'reason' => "Transfer from " . Location::find($fromLocationId)->name,
+                ])
+            );
 
             if (!$inResult['success']) {
                 // Rollback would happen automatically due to DB transaction
@@ -264,23 +269,23 @@ class StockTransactionService
     /**
      * Validate transaction data.
      */
-    private function validateTransaction(array $data): array
+    private function validateTransaction(CreateStockTransactionDto $data): array
     {
-        if ($data['quantity'] <= 0) {
+        if ($data->quantity <= 0) {
             return [
                 'valid' => false,
                 'message' => 'Quantity must be greater than zero.',
             ];
         }
 
-        if (!Product::find($data['product_id'])) {
+        if (!Product::find($data->productId)) {
             return [
                 'valid' => false,
                 'message' => 'Product not found.',
             ];
         }
 
-        if (!Location::find($data['location_id'])) {
+        if (!Location::find($data->locationId)) {
             return [
                 'valid' => false,
                 'message' => 'Location not found.',

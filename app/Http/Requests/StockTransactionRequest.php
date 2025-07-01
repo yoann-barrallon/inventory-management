@@ -27,7 +27,7 @@ class StockTransactionRequest extends FormRequest
             'type' => 'required|in:in,out,adjustment',
             'quantity' => 'required|integer|min:1',
             'reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:1000',
+            'reason' => 'nullable|string|max:1000',
         ];
     }
 
@@ -42,7 +42,7 @@ class StockTransactionRequest extends FormRequest
             'type' => 'transaction type',
             'quantity' => 'quantity',
             'reference' => 'reference number',
-            'notes' => 'notes',
+            'reason' => 'reason',
         ];
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\DTOs\CreateStockTransactionDto;
 use App\DTOs\StockTransactionFilterDto;
 use App\Http\Requests\StockTransactionRequest;
 use App\Http\Requests\StockTransferRequest;
@@ -85,7 +86,8 @@ class StockTransactionController extends Controller
      */
     public function store(StockTransactionRequest $request): RedirectResponse
     {
-        $result = $this->stockTransactionService->processTransaction($request->validated());
+        $dto = CreateStockTransactionDto::fromArray($request->validated());
+        $result = $this->stockTransactionService->processTransaction($dto);
 
         $redirectResponse = redirect()->route('inventory.stock-transactions.index');
 
