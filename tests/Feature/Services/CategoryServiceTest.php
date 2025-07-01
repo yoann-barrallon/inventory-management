@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Services;
+namespace Tests\Feature\Services;
 
 use App\DTOs\GenericFilterDto;
 use App\Models\Category;
