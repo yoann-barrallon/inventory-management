@@ -136,12 +136,15 @@ class UserTest extends TestCase
         
         // Create a permission if it doesn't exist
         $permission = Permission::firstOrCreate(['name' => 'manage products']);
+
+        $permission2 = Permission::firstOrCreate(['name' => 'manage users']);
         
         $user->givePermissionTo($permission);
+        $user->givePermissionTo($permission2);
 
         $this->assertTrue($user->hasPermissionTo('manage products'));
-        $this->assertFalse($user->hasPermissionTo('manage users'));
-        $this->assertCount(1, $user->permissions);
+        $this->assertTrue($user->hasPermissionTo('manage users'));
+        $this->assertCount(2, $user->permissions);
     }
 
     /**

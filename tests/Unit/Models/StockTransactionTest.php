@@ -24,7 +24,7 @@ class StockTransactionTest extends TestCase
         $transactionData = [
             'product_id' => $product->id,
             'location_id' => $location->id,
-            'type' => 'inbound',
+            'type' => 'in',
             'quantity' => 50,
             'reason' => 'Purchase receipt',
             'reference' => 'PO202401010001',
@@ -34,7 +34,7 @@ class StockTransactionTest extends TestCase
         $transaction = StockTransaction::create($transactionData);
 
         $this->assertInstanceOf(StockTransaction::class, $transaction);
-        $this->assertEquals('inbound', $transaction->type);
+        $this->assertEquals('in', $transaction->type);
         $this->assertEquals(50, $transaction->quantity);
         $this->assertEquals('Purchase receipt', $transaction->reason);
         $this->assertEquals('PO202401010001', $transaction->reference);
@@ -104,13 +104,15 @@ class StockTransactionTest extends TestCase
      */
     public function test_different_transaction_types(): void
     {
-        $inboundTransaction = StockTransaction::factory()->create(['type' => 'inbound']);
-        $outboundTransaction = StockTransaction::factory()->create(['type' => 'outbound']);
+        $inboundTransaction = StockTransaction::factory()->create(['type' => 'in']);
+        $outboundTransaction = StockTransaction::factory()->create(['type' => 'out']);
         $adjustmentTransaction = StockTransaction::factory()->create(['type' => 'adjustment']);
+        $transferTransaction = StockTransaction::factory()->create(['type' => 'transfer']);
 
-        $this->assertEquals('inbound', $inboundTransaction->type);
-        $this->assertEquals('outbound', $outboundTransaction->type);
+        $this->assertEquals('in', $inboundTransaction->type);
+        $this->assertEquals('out', $outboundTransaction->type);
         $this->assertEquals('adjustment', $adjustmentTransaction->type);
+        $this->assertEquals('transfer', $transferTransaction->type);
     }
 
     /**
@@ -119,12 +121,12 @@ class StockTransactionTest extends TestCase
     public function test_transaction_with_negative_quantity(): void
     {
         $transaction = StockTransaction::factory()->create([
-            'type' => 'outbound',
+            'type' => 'out',
             'quantity' => -25,
         ]);
 
         $this->assertEquals(-25, $transaction->quantity);
-        $this->assertEquals('outbound', $transaction->type);
+        $this->assertEquals('out', $transaction->type);
     }
 
     /**
@@ -133,7 +135,7 @@ class StockTransactionTest extends TestCase
     public function test_stock_transaction_can_be_updated(): void
     {
         $transaction = StockTransaction::factory()->create([
-            'type' => 'inbound',
+            'type' => 'in',
             'quantity' => 50,
             'reason' => 'Old reason',
         ]);
